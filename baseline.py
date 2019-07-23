@@ -1,4 +1,3 @@
-import codecs
 import os
 
 # 0 install crf++ https://taku910.github.io/crfpp/
@@ -9,7 +8,7 @@ import os
 # 5 submit test
 
 # step 1 train data in
-with codecs.open('train.txt', 'r', encoding='utf-8') as f:
+with open('train.txt', 'r', encoding='utf-8') as f:
     lines = f.readlines()
     results = []
     for line in lines:
@@ -21,9 +20,9 @@ with codecs.open('train.txt', 'r', encoding='utf-8') as f:
             tag = sample[-1]
             features.extend(sample_list)
             tags.extend(['O'] * len(sample_list)) if tag == 'o' else tags.extend(['B-' + tag] + ['I-' + tag] * (len(sample_list)-1))
-        results.append(dict({'features': features, 'tags': tags}))
+        results.append({'features': features, 'tags': tags})
     train_write_list = []
-    with codecs.open('dg_train.txt', 'w', encoding='utf-8') as f_out:
+    with open('dg_train.txt', 'w', encoding='utf-8') as f_out:
         for result in results:
             for i in range(len(result['tags'])):
                 train_write_list.append(result['features'][i] + '\t' + result['tags'][i] + '\n')
@@ -31,16 +30,16 @@ with codecs.open('train.txt', 'r', encoding='utf-8') as f:
         f_out.writelines(train_write_list)
 
 # step 2 test data in
-with codecs.open('test.txt', 'r', encoding='utf-8') as f:
+with open('test.txt', 'r', encoding='utf-8') as f:
     lines = f.readlines()
     results = []
     for line in lines:
         features = []
         sample_list = line.split('_')
         features.extend(sample_list)
-        results.append(dict({'features': features}))
+        results.append({'features': features})
     test_write_list = []
-    with codecs.open('dg_test.txt', 'w', encoding='utf-8') as f_out:
+    with open('dg_test.txt', 'w', encoding='utf-8') as f_out:
         for result in results:
             for i in range(len(result['features'])):
                 test_write_list.append(result['features'][i] + '\n')
@@ -56,8 +55,8 @@ crf_test = "crf_test -m dg_model dg_test.txt -o dg_result.txt"
 os.system(crf_test)
 
 # 5 submit data
-f_write = codecs.open('dg_submit.txt', 'w', encoding='utf-8') 
-with codecs.open('dg_result.txt', 'r', encoding='utf-8') as f:
+f_write = open('dg_submit.txt', 'w', encoding='utf-8') 
+with open('dg_result.txt', 'r', encoding='utf-8') as f:
     lines = f.read().split('\n\n')
     for line in lines:
         if line == '':
