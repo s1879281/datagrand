@@ -10,6 +10,8 @@ def get_parser():
     parser.add_argument('--test-data', default='test.txt', help='path of test data')
     parser.add_argument('--train-data-no-tags', default='train_no_tags.txt', help='path of training data with no tags')
     parser.add_argument('--model', default='crf', help='model name')
+    parser.add_argument('-f', type=int, default=3, help='hyper-parameter f of crf model')
+    parser.add_argument('-c', type=int, default=1, help='hyper-parameter f of crf model')
     parser.add_argument('--seed', type=int, default=0, help='random seed')
     parser.add_argument('--split-valid', type=float, default=0.2, help='random seed')
     return parser
@@ -64,13 +66,15 @@ def make_data_with_no_tags(data, split='valid'):
         f_out.writelines(test_write_list)
 
 
-def crf_train():
-    crf_train = "crf_learn -f 3 template.txt dg_train.txt dg_model"
+def crf_train(f, c):
+    crf_train = "crf_learn -f %d -c %d template.txt dg_train.txt dg_model"%(f, c)
     os.system(crf_train)
 
 
-def crf_generate(valid_split='valid_no_tags'):
-    if valid_split == 'valid_no_tags':
+def crf_generate(split='valid_no_tags'):
+    if split == 'train_no_tags':
+        cmd = "crf_test -m dg_model dg_train_no_tags.txt -o dg_train_result.txt" 
+    elif split == 'valid_no_tags':
         cmd = "crf_test -m dg_model dg_valid_no_tags.txt -o dg_valid_result.txt"
     else:
         cmd = "crf_test -m dg_model dg_test.txt -o dg_result.txt"
@@ -95,7 +99,26 @@ def evaluate(predictions, true_data):
         tag = re.sub('[IB]-', '', line.split()[-1])
         true_tags.append(tag)
     assert len(true_tags) == len(pred_tags)
-    return f1_score(true_tags, pred_tags, average='micro')
+
+    correct = 0
+    total_pred = pred_tags.count('a') + pred_tags.count('b') + pred_tags.count('c')
+
+    total_true = true_tags.count('a') + true_tags.count('b') + true_tags.count('c')
+    for pred, true in zip(pred_tags, true_tags):
+        if pred == true and pred in ['a', 'b', 'c']:
+            correct += 1
+
+    def micro_f1(correct, num_pred, num_true):
+        p = correct / num_pred
+        r = correct / num_true
+        f1_score = 2 * p * r / (p + r)
+        return (p, r, f1_score)
+
+    p, r, f1_score = micro_f1(correct, total_pred, total_true)
+    print('total correct: %d, total prediciton num: %d, total true num: %d'%(correct, total_pred, total_true))
+    print('precition: %.3f, recall: %.3f, F1 score: %.3f'%(p, r, f1_score))
+
+    return f1_score
 
 
 def make_submit_data():
@@ -145,10 +168,11 @@ def preprocess(args):
         data_no_tags = f.readlines()
     with open(args.test_data, 'r', encoding='utf-8') as f:
         test_data = f.readlines()
-    train_data_with_tags, valid_data_with_tags, _, valid_data_no_tags = train_test_split(data, data_no_tags,
-                                                                                 test_size=args.split_valid, random_state=args.seed)
+    train_data_with_tags, valid_data_with_tags, train_data_no_tags, valid_data_no_tags = train_test_split(data, data_no_tags,
+                                                                    test_size=args.split_valid, random_state=args.seed)
     make_data_with_tags(train_data_with_tags, 'train')
     make_data_with_tags(valid_data_with_tags, 'valid')
+    make_data_with_no_tags(train_data_no_tags, 'train_no_tags')
     make_data_with_no_tags(valid_data_no_tags, 'valid_no_tags')
     make_data_with_no_tags(test_data, 'test')
 
@@ -159,14 +183,16 @@ def main(args):
     preprocess(args)
 
     if args.model == 'crf':
-        crf_train()
+        crf_train(args.f, args.c)
+        crf_generate('train_no_tags')
+        train_f1_score = evaluate('dg_train_result.txt', 'dg_train.txt')
+        print('Training F1 score is: %.5f'%train_f1_score)
         crf_generate('valid_no_tags')
         valid_f1_score = evaluate('dg_valid_result.txt', 'dg_valid.txt')
-        print('F1 score is: %.5f'%valid_f1_score)
+        print('Validation F1 score is: %.5f'%valid_f1_score)
         crf_generate('test')
-
-    make_submit_data()
-    
+        make_submit_data()
+        
 
 if __name__ == "__main__":
     parser = get_parser()
