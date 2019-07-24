@@ -35,7 +35,7 @@ with open('test.txt', 'r', encoding='utf-8') as f:
     results = []
     for line in lines:
         features = []
-        sample_list = line.split('_')
+        sample_list = line.strip().split('_')
         features.extend(sample_list)
         results.append({'features': features})
     test_write_list = []
